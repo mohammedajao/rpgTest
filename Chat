@@ -1,0 +1,82 @@
+local Unity = require(game.ReplicatedStorage:WaitForChild("Unity.Api"))()
+local Network = require("Network")
+
+local UserInputService = game:GetService("UserInputService")
+
+local this = script.Parent:WaitForChild("Frame")
+local Display = this:WaitForChild("ChatDisplay")
+local Messager = this:WaitForChild("Messager")
+
+local Player = game.Players.LocalPlayer
+
+local StatusColors = {
+	["Creator"] = {255,0,0};
+	["Administrator"] = {255,255,0};
+	["Moderator"] = {190,190,190};
+	["Player"] = {};
+	["Developer"] = {51, 204, 255};
+}
+
+local Debounce = true
+
+repeat wait() until _G["GAME READY"]
+
+local function Defaults()
+	Display.CanvasPosition = Vector2.new(0, 220)
+end
+
+Player.CharacterAdded:connect(function()
+	Defaults()
+end)
+
+Network.BindEvent(
+	"DisplayMessage",
+	Enum.Receiver.Client,
+	function(filteredMessage, user, status)
+		for number=0,#(Display:GetChildren()),1 do
+			if Display:FindFirstChild("Chatbox"..number) and (number ~= 19) then
+				Display["Chatbox"..(number)].Player.Text = Display["Chatbox"..(number+1)].Player.Text
+				Display["Chatbox"..(number)].Player.Status.Text = Display["Chatbox"..(number+1)].Player.Status.Text
+				Display["Chatbox"..(number)].Player.Message.Text = Display["Chatbox"..(number+1)].Player.Message.Text
+				
+				Display["Chatbox"..(number)].Player.Status.TextColor3 = Display["Chatbox"..(number+1)].Player.Status.TextColor3
+				Display["Chatbox"..(number)].Player.Message.TextColor3 = Display["Chatbox"..(number+1)].Player.Message.TextColor3
+				
+				Display["Chatbox"..(number)].Player.Status.Position = Display["Chatbox"..(number+1)].Player.Status.Position
+				Display["Chatbox"..(number)].Player.Message.Position = Display["Chatbox"..(number+1)].Player.Message.Position
+			end
+		end
+		if status ~= "Player" then
+			local ColorTable = StatusColors[status]
+			Display["Chatbox19"].Player.Status.Text = "["..status.."]"
+			Display["Chatbox19"].Player.Status.TextColor3 = Color3.new(ColorTable[1], ColorTable[2], ColorTable[3])
+		else
+			Display["Chatbox19"].Player.Status.Text = ""
+			Display["Chatbox19"].Player.Status.TextColor3 = Color3.new(255,255,255)
+		end
+		Display["Chatbox19"].Player.Text = "["..tostring(user).."]"
+		Display["Chatbox19"].Player.Message.Text = filteredMessage
+		
+		Display["Chatbox19"].Player.Status.Position = UDim2.new(0,Display["Chatbox19"].Player.TextBounds.X,0,0)
+		Display["Chatbox19"].Player.Message.Position = UDim2.new(0,Display["Chatbox19"].Player.Status.TextBounds.X + Display["Chatbox19"].Player.Status.Position.X.Offset + 5,0,0)
+	end
+)
+
+UserInputService.InputBegan:connect(function(input, gameProcessed)
+	if not gameProcessed and (input.KeyCode == Enum.KeyCode.Slash) then
+		Messager:CaptureFocus()
+	end
+end)
+
+Messager.FocusLost:connect(function(enterPressed)
+	if enterPressed and Debounce then
+		Debounce = false
+		Network.Fire("ReplicateGlobalMessage", Enum.Receiver.Server, Messager.Text)
+	end
+	Messager.Text = "Press \"/\" on your keyboard to start chatting!"
+	wait(2)
+	Debounce = true
+end)
+
+Defaults()
+
